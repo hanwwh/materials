@@ -1,0 +1,70 @@
+一、dsm安装文件处理
+1、上传iso文件
+scp DS3615xs_7.0.1-42218.img root@192.168.3.235:/root/work/os
+
+2、挂载iso到dsm虚拟机上
+qm importdisk 100 /root/work/os/DS3615xs_7.0.1-42218.img local-lvm
+
+3、新增数据盘
+
+qm set 100 -sata2 /dev/disk/by-id/ata-WDC_WD10EALS-00Z8A0_WD-WCATR2540973
+
+
+qm importdisk 101 /root/work/os/Win10_21H2_19044.1320_X64_no_update_2021.10.30.iso local-lvm
+
+
+/var/tmp/pveupload-52b8fd963823acb6d61fd58356d036de
+
+
+（1）DS918+的CPU架构是apollolake
+
+（2）DS3617xs的CPU架构是broadwell
+
+（3）DS3615xs的CPU架构是bromolow
+
+
+更改 VideoStation 设置：
+
+# 备份 VideoStation 原始 ffmpeg (本条命令无回车，请复制完整)
+
+mv -n /var/packages/VideoStation/target/bin/ffmpeg /var/packages/VideoStation/target/bin/ffmpeg.orig
+
+# 注入代码 (本条命令无回车，请复制完整)
+
+wget -O - https://gist.githubusercontent.com/BenjaminPoncet/bbef9edc1d0800528813e75c1669e57e/raw/ffmpeg-wrapper > /var/packages/VideoStation/target/bin/ffmpeg
+
+# 更改文件权限
+
+chown root:VideoStation /var/packages/VideoStation/target/bin/ffmpeg
+
+chmod 750 /var/packages/VideoStation/target/bin/ffmpeg
+
+chmod u+s /var/packages/VideoStation/target/bin/ffmpeg
+
+# 备份 VideoStation 原始 libsynovte.so (本条命令无回车，请复制完整)
+
+cp -n /var/packages/VideoStation/target/lib/libsynovte.so /var/packages/VideoStation/target/lib/libsynovte.so.orig
+
+# 更改文件权限 (本条命令无回车，请复制完整)
+
+chown VideoStation:VideoStation /var/packages/VideoStation/target/lib/libsynovte.so.orig
+
+# 解除 DTS, EAC3, TrueHD 屏蔽 (本条命令无回车，请复制完整)
+
+sed -i -e 's/eac3/3cae/' -e 's/dts/std/' -e 's/truehd/dheurt/' /var/packages/VideoStation/target/lib/libsynovte.so
+
+# 在套件中心，手动关闭VideoStation，然后再开启即可
+
+
+
+更新注入的代码：
+
+# 运行如下命令 (本条命令无回车，请复制完整)
+
+wget -O - https://gist.githubusercontent.com/BenjaminPoncet/bbef9edc1d0800528813e75c1669e57e/raw/ffmpeg-wrapper > /var/packages/VideoStation/target/bin/ffmpeg
+
+
+
+卸载注入的代码：
+
+# 套件中心卸载VideoStation，然后重新安装 

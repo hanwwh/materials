@@ -1,0 +1,230 @@
+一、安装postgresql
+官网安装方式推荐：https://www.postgresql.org/download/linux/ubuntu/
+
+1、首先，安装PostgreSQL客户端：（服务端本身也要安装client，否则没有一些数据库操作命令）
+sudo apt-get install postgresql-client
+
+
+2、然后，安装PostgreSQL服务器：
+sudo apt-get -y install postgresql
+正常情况下，安装完成后，PostgreSQL服务器会自动在本机的5432端口开启。
+
+3、如果还想安装图形管理界面，可以运行下面命令，但是本文不涉及这方面内容。
+sudo apt-get install pgadmin3
+
+4、postgresql目录
+/etc/postgresql/14/main
+
+5、数据库服务
+sudo service postgresql stop --force
+sudo service postgresql start --force
+
+sudo service postgresql restart
+
+6、配置设置
+安装PostgreSQL数据库之后，默认只能本地访问连接。
+如果想在其他主机上访问PostgreSQL数据库服务器，就需要进行相应的配置。
+需要修改data目录下的pg_hba.conf和postgresql.conf。
+其中pg_hba.conf是用来配置对数据库的访问权限，postgresql.conf文件用来配置PostgreSQL数据库服务器的相应的参数。
+
+（1）修改 postgresql.conf 文件
+将数据库服务器的监听模式修改为监听所有主机发出的连接请求。
+
+定位到 #listen_addresses='localhost’
+PostgreSQL安装完成后，默认是只接受来在本机localhost的连接请求。
+将行开头都#去掉，将行内容修改为 listen_addresses='*' 来允许数据库服务器监听来自任何主机的连接请求。
+
+（2）修改 pg_hba.conf 文件
+配置用户的访问权限（#开头的行是注释内容）：
+
+# TYPE  DATABASE    USER        CIDR-ADDRESS          METHOD
+    # IPv4 local connections:
+    host        all                   all              127.0.0.1/32                md5
+
+    新增：
+    host        all                   all  192.168.3.0/24                trust
+
+以上红色部分为新添加的项。
+以上内容需要注意以下两点：
+1. 数据库名与用户名注意大小写，PostgreSQL是区分大小的；
+2. CIDR-ADDRESS（用户的IP范围）的值的格式是：IP/数值
+数值取值范围为：0,8,16,24,32　即表示掩码bit的个数；
+例如：
+32 -> 192.168.1.1/32 表示必须是来自这个IP地址的访问才合法；
+24 -> 192.168.1.0/24 表示只要来自192.168.1.0 ~ 192.168.1.255的都合法；
+16 -> 192.168.0.0/16 表示只要来自192.168.0.0 ~ 192.168.255.255的都合法；
+8   -> 192.0.0.0/16 表示只要来自192.0.0.0 ~ 192.255.255.255的都合法；
+0   -> 0.0.0.0/0 表示全部IP地址都合法，/左边的IP地址随便了只要是合法的IP地址即可；
+
+完成上面两个配置文件的修改以后，为了让配置生效，需要重新启动PostgreSQL数据库服务器。
+
+注意：要把所有的 md5、peer斗殴改成 trust ，否则新增的用户无法使用  用户名/密码 登录，会报错：pgsql PostgreSQL server: FATAL: Peer authentication failed for user greenfire
+
+二、添加新用户和新数据库
+初次安装后，postgresql会默认生成：
+（1）一个名为postgres的数据库
+（2）一个名为postgres的数据库用户
+（3）一个名为postgres的Linux系统用户
+
+在数据库正常使用过程中， 最好不要直接使用postgres的数据库以及用户，新建一个系统用户，以及数据库。
+
+两种方法：
+1、使用PostgreSQL控制台。
+（1）首先，新建一个Linux新用户，可以取你想要的名字，这里为 greenfire
+
+sudo adduser greenfire （默认会构建用户组greenfire）
+(修改 greenfire 群组为root：usermod -g root greenfire)
+（或者直接使用：sudo adduser -g root greenfire      # 添加用户 greenfire 并指定用户组为root）
+
+（过程中设置 greenfire 的密码为 860211 ，修改用户密码命令 passwd greenfire ）
+
+然后，切换到postgres用户。
+
+sudo su - postgres
+
+（2）使用psql命令登录PostgreSQL控制台。
+
+psql
+
+这时相当于系统用户postgres以同名数据库用户的身份，登录数据库，这是不用输入密码的。
+如果一切正常，系统提示符会变为"postgres=#"，表示这时已经进入了数据库控制台。以下的命令都在控制台内完成。
+
+第一件事是使用\password命令，为postgres用户设置一个密码。
+
+\password postgres
+（设置 postgres 的密码为 860211）
+
+第二件事是创建数据库用户 greenfire （刚才创建的是Linux系统用户），并设置密码。
+
+CREATE USER greenfire WITH PASSWORD 'greenfire123';
+
+第三件事是创建用户数据库，这里为 greenfiredb ，并指定所有者为 greenfire
+
+CREATE DATABASE greenfiredb OWNER greenfire;
+
+第四件事是将 greenfiredb 数据库的所有权限都赋予 greenfire ，否则 greenfire 只能登录控制台，没有任何数据库操作权限。
+
+GRANT ALL PRIVILEGES ON DATABASE greenfiredb to greenfire;
+
+最后，使用\q命令退出控制台（也可以直接按ctrl+D）。
+
+\q
+
+
+2、使用shell命令行。
+添加新用户和新数据库，除了在PostgreSQL控制台内，还可以在shell命令行下完成。
+这是因为PostgreSQL提供了命令行程序createuser和createdb。还是以新建用户dbuser和数据库exampledb为例。
+
+1、首先，创建数据库用户 greenfire ，并指定其为超级用户。
+
+sudo -u postgres createuser --superuser greenfire
+
+2、然后，登录数据库控制台，设置dbuser用户的密码，完成后退出控制台。
+
+sudo -u postgres psql
+\password greenfire
+\q
+
+3、接着，在shell命令行下，创建数据库 greenfiredb ，并指定所有者为 greenfire
+
+sudo -u postgres createdb -O greenfire greenfiredb
+
+
+三、登录数据库
+添加新用户和新数据库以后，就要以新用户的名义登录数据库，这时使用的是psql命令。
+
+psql -U greenfire -d greenfiredb -h 127.0.0.1 -p 5432
+
+上面命令的参数含义如下：-U指定用户，-d指定数据库，-h指定服务器，-p指定端口。
+
+输入上面命令以后，系统会提示输入dbuser用户的密码。输入正确，就可以登录控制台了。
+
+psql命令存在简写形式。如果当前Linux系统用户，同时也是PostgreSQL用户，则可以省略用户名（-U参数的部分）。
+举例来说，我的Linux系统用户名为ruanyf，且PostgreSQL数据库存在同名用户，则我以ruanyf身份登录Linux系统后，可以直接使用下面的命令登录数据库，且不需要密码。
+
+psql greenfiredb
+
+此时，如果PostgreSQL内部还存在与当前系统用户同名的数据库，则连数据库名都可以省略。比如，假定存在一个叫做ruanyf的数据库，则直接键入psql就可以登录该数据库。
+
+psql
+
+另外，如果要恢复外部数据，可以使用下面的命令。
+
+psql greenfiredb < greenfiredb.sql
+
+
+四、控制台命令
+除了前面已经用到的\password命令（设置密码）和\q命令（退出）以外，控制台还提供一系列其他命令。
+
+\h：查看SQL命令的解释，比如\h select。
+\?：查看psql命令列表。
+\l：列出所有数据库。
+\c [database_name]：连接其他数据库。
+\d：列出当前数据库的所有表格。
+\d [table_name]：列出某一张表格的结构。
+\du：列出所有用户。
+\e：打开文本编辑器。
+\conninfo：列出当前数据库和连接的信息。
+
+五、数据库操作
+基本的数据库操作，就是使用一般的SQL语言。
+
+# 创建新表
+CREATE TABLE user_tbl(name VARCHAR(20), signup_date DATE);
+
+# 插入数据
+INSERT INTO user_tbl(name, signup_date) VALUES('张三', '2013-12-22');
+
+# 选择记录
+SELECT * FROM user_tbl;
+
+# 更新数据
+UPDATE user_tbl set name = '李四' WHERE name = '张三';
+
+# 删除记录
+DELETE FROM user_tbl WHERE name = '李四' ;
+
+# 添加栏位
+ALTER TABLE user_tbl ADD email VARCHAR(40);
+
+# 更新结构
+ALTER TABLE user_tbl ALTER COLUMN signup_date SET NOT NULL;
+
+# 更名栏位
+ALTER TABLE user_tbl RENAME COLUMN signup_date TO signup;
+
+# 删除栏位
+ALTER TABLE user_tbl DROP COLUMN email;
+
+# 表格更名
+ALTER TABLE user_tbl RENAME TO backup_tbl;
+
+# 删除表格
+DROP TABLE IF EXISTS backup_tbl;
+
+六、卸载
+完全删除postgresql：
+
+1.查看版本号和系统类别：cat  /etc/redhat-realease;
+
+2.如果是redhat:(yum install)
+
+a.yum 删除软件包：
+
+yum remove postgresql*
+
+apt-get remove postgresql*
+
+b.删除相关目录文件：
+
+       rm -rf  /var/lib/postgresql
+       rm -rf  /etc/postgresql
+       rm -rf  /etc/postgresql-common
+
+rm -rf  /usr/pgsql*
+
+
+     c.删除pg相关用户组/用户
+
+userdel -r postgres
+groupdel postgres

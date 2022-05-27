@@ -1,0 +1,75 @@
+文件的压缩及解压命令老是记不住，所以简单做了一下整理。
+1、tar.gz文件压缩
+# tar cvfz backup.tar.gz /xxx/
+
+       -c, --create
+              create a new archive
+
+       -v, --verbose
+              verbosely list files processed
+
+       -f, --file [HOSTNAME:]F
+              use archive file or device F (default /dev/rmt0)
+
+       -z, --gzip, --ungzip
+              filter the archive through gzip
+
+
+2、tar.gz文件解压
+tar -zxvf xxx.tar.gz
+
+这样会生成一个以文件名命名的文件夹
+
+       -z, --gzip, --ungzip
+              filter the archive through gzip
+
+       -x, --extract, --get
+              extract files from an archive
+
+       -v, --verbose
+              verbosely list files processed
+
+       -f, --file [HOSTNAME:]F
+              use archive file or device F (default /dev/rmt0)
+
+
+3、其他类型
+
+*.tar 用 tar –xvf 解压
+
+*.gz 用 gzip -d或者gunzip 解压
+
+*.tar.gz和*.tgz 用 tar –xzf 解压
+
+*.bz2 用 bzip2 -d或者用bunzip2 解压
+
+*.tar.bz2用tar –xjf 解压
+
+*.Z 用 uncompress 解压
+
+*.tar.Z 用tar –xZf 解压
+
+*.rar 用 unrar e解压
+
+*.zip 用 unzip 解压
+———————————————
+
+
+
+环境变量三种方式：(命令别名也是在这里)
+
+1、全局生效，针对所有用户
+以root用户修改/etc/profile，全局、永久生效
+
+增加变量：export key=value
+生效：source /etc/profile  （不执行的话，只能在下次登录时生效）
+
+2、当前用户生效
+修改用户目录下的 .bash_profile
+
+增加变量：export key=value
+生效：source /home/xxx/.bash_profile （不执行的话，只能在下次登录时生效）
+
+3、临时新增
+增加变量：export key=value
+只在当前会话中生效。

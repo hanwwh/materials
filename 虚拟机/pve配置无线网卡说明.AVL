@@ -1,0 +1,177 @@
+参考https://zhuanlan.zhihu.com/p/424950750，从【配置无线网卡】开始看
+
+1、查看网卡：
+使用 cat /etc/network/interfaces 查看当前系统的网络接口，可以看到默认只有有线网卡在工作。
+root@yuhb:~# cat /etc/network/interfaces
+auto lo
+iface lo inet loopback
+
+    iface enp5s0 inet manual
+
+    auto vmbr0
+    iface vmbr0 inet static
+    address 192.168.3.194/24
+    gateway 192.168.3.1
+    bridge-ports enp5s0
+    bridge-stp off
+    bridge-fd 0
+
+
+enp4s0：有线网卡，已经在使用
+vmbr0：pve的虚拟网卡
+
+2、安装驱动
+（1）首先使用 lspci 查看网卡类型
+root@yuhb:~# lspci|grep Network
+04:00.0 Network controller: Intel Corporation Wi-Fi 6 AX200 (rev 1a)
+05:00.0 Ethernet controller: Intel Corporation I211 Gigabit Network Connection (rev 03)
+可以看到无线网卡是AX200
+
+（2）下载驱动
+Intel网卡驱动下载：https://www.intel.com/content/www/us/en/support/articles/000005511/wireless.html
+
+找到ax200：	iwlwifi-cc-46.3cfab8da.0.tgz，下载	iwlwifi-cc-46.3cfab8da.0.tgz，然后解压，得到以下三个文件：
+LICENSE.iwlwifi-cc.ucode
+README.iwlwifi-cc.ucode
+iwlwifi-cc-a0-46.ucode（即为驱动文件）
+
+（3）上传驱动文件到pve
+scp iwlwifi-cc-a0-46.ucode root@192.168.3.194:/lib/firmware
+
+（或者使用  wget https://wireless.wiki.kernel.org/_media/en/users/drivers/iwlwifi/iwlwifi-cc-46.3cfab8da.0.tgz  下载，
+然后解压  tar -zxvf iwlwifi-cc-46.3cfab8da.0.tgz ， 复制  iwlwifi-cc-a0-46.ucode 到 /lib/firmware下）
+
+至此，驱动安装完成
+
+3、配置无线网卡
+（1）先安装网卡工具
+apt install net-tools wireless-tools wpasupplicant
+
+（2）查看当前网络接口
+软件安装完毕后，使用 iwconfig 查看当前网络接口，可以看到目前系统网卡设备里还没有无线网卡：
+lo        no wireless extensions.
+
+    enp5s0    no wireless extensions.
+
+    vmbr0     no wireless extensions.
+
+此时驱动已经安装好，重启下（reboot），然后再次使用 iwconfig  查看 ：
+lo        no wireless extensions.
+
+    enp5s0    no wireless extensions.
+
+    wlp4s0    IEEE 802.11  ESSID:off/any
+              Mode:Managed  Access Point: Not-Associated   Tx-Power=0 dBm
+              Retry short limit:7   RTS thr:off   Fragment thr:off
+              Encryption key:off
+              Power Management:on
+
+    vmbr0     no wireless extensions.
+
+    可以看到列表中出现了无线网卡（ wlp4s0 ），但是此刻网卡并未打开，电源提示 Tx-Power=0 dBm 。
+
+（3）启动网卡
+- 使用 iwlist wlp4s0 scan ，搜索无线网络，可以看到网卡目前确实还无法使用：
+wlp4s0    Interface doesn't support scanning : Network is down
+
+    - 使用 ifconfig wlp4s0 up 启动网卡，然后再次使用 iwconfig 查看设备：
+        lo        no wireless extensions.
+
+        enp5s0    no wireless extensions.
+
+        wlp4s0    IEEE 802.11  ESSID:off/any
+                  Mode:Managed  Access Point: Not-Associated   Tx-Power=-2147483648 dBm
+                  Retry short limit:7   RTS thr:off   Fragment thr:off
+                  Encryption key:off
+                  Power Management:on
+
+        vmbr0     no wireless extensions.
+
+        可以看到网卡启动了，显示 Tx-Power=20 dBm
+
+（4）连接网络
+- 再次使用 iwlist wlp4s0 scan 进行无线网络扫描，会出现一堆无线网络名称，找到Yuhb：
+Cell 06 - Address: 6C:06:D6:FF:65:8C
+Channel:11
+Frequency:2.462 GHz (Channel 11)
+Quality=70/70  Signal level=-39 dBm
+Encryption key:on
+ESSID:"Yuhb"
+
+      - 使用下面的命令，先生成网络配置：
+      wpa_passphrase Yuhb ,,,,.... > /etc/wpa_supplicant/wpa_supplicant.conf
+
+      （ wpa_passphrase WIFI_NAME WIFI_PASSWORD > /etc/wpa_supplicant/wpa_supplicant.conf ）
+
+      - 删除 “iface wlp4s0 inet manual”
+        vi /etc/network/interfaces ，删除  iface wlp4s0 inet manual
+
+      - 接着，使用下面的命令，将无线网卡和刚刚生成的无线网络配置添加到当前的系统网络接口中：
+      注意格式不变，写入分三行：
+echo 'auto wlp4s0
+iface wlp4s0 inet dhcp
+wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf' >> /etc/network/interfaces
+
+      - 执行完毕后，使用下面的命令重启系统网络服务：
+        service networking restart
+
+      - 网络服务重启完毕之后，再次使用 iwconfig 命令查看网络接口，可以看到网卡已经在工作中了：
+        lo        no wireless extensions.
+
+        enp5s0    no wireless extensions.
+
+        wlp4s0    IEEE 802.11  ESSID:"Yuhb"
+                  Mode:Managed  Frequency:5.22 GHz  Access Point: 6C:06:D6:FF:65:90
+                  Bit Rate=490 Mb/s   Tx-Power=22 dBm
+                  Retry short limit:7   RTS thr:off   Fragment thr:off
+                  Encryption key:off
+                  Power Management:on
+                  Link Quality=57/70  Signal level=-53 dBm
+                  Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+                  Tx excessive retries:0  Invalid misc:5   Missed beacon:0
+
+         vmbr0     no wireless extensions.
+
+         - 使用 ifconfig ，则可以看到 PVE 的有线和无线网络都连上了网，并且都获取了网络地址。
+           enp5s0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+                   ether b4:2e:99:fc:3f:b3  txqueuelen 1000  (Ethernet)
+                   RX packets 18532  bytes 6068731 (5.7 MiB)
+                   RX errors 0  dropped 0  overruns 0  frame 0
+                   TX packets 10869  bytes 6236509 (5.9 MiB)
+                   TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+                   device memory 0xf7600000-f761ffff
+
+           lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+                   inet 127.0.0.1  netmask 255.0.0.0
+                   inet6 ::1  prefixlen 128  scopeid 0x10<host>
+                   loop  txqueuelen 1000  (Local Loopback)
+                   RX packets 934  bytes 537341 (524.7 KiB)
+                   RX errors 0  dropped 0  overruns 0  frame 0
+                   TX packets 934  bytes 537341 (524.7 KiB)
+                   TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+           vmbr0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+                   inet 192.168.3.194  netmask 255.255.255.0  broadcast 0.0.0.0
+                   inet6 fe80::b62e:99ff:fefc:3fb3  prefixlen 64  scopeid 0x20<link>
+                   ether b4:2e:99:fc:3f:b3  txqueuelen 1000  (Ethernet)
+                   RX packets 242  bytes 40568 (39.6 KiB)
+                   RX errors 0  dropped 5  overruns 0  frame 0
+                   TX packets 137  bytes 39140 (38.2 KiB)
+                   TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+           wlp4s0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+                   inet 192.168.3.3  netmask 255.255.255.0  broadcast 192.168.3.255
+                   inet6 fe80::fae4:e3ff:fe27:6415  prefixlen 64  scopeid 0x20<link>
+                   ether f8:e4:e3:27:64:15  txqueuelen 1000  (Ethernet)
+                   RX packets 30  bytes 3978 (3.8 KiB)
+                   RX errors 0  dropped 1  overruns 0  frame 0
+                   TX packets 13  bytes 1890 (1.8 KiB)
+                   TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+          - 此时系统的无线网卡和有线网卡都已经连接上网络，但此时默认使用的还是有线网卡。
+          如果要只用无线网卡，去除有线的麻烦，需要修改 /etc/network/interfaces ，执行以下命令：
+            vi /etc/network/interfaces
+            删除   auto vmbr0  这一行（因为这个虚拟网卡是基于有线网卡的，所以连接的时候要删除这个，自动使用无线网卡）
+            然后保存文件退出，重启机器  reboot（此时重启网络会没有效果，直接重启）
+
+          重启之后，即直连无线网卡。即可使用无线网卡的ip访问pve：https://192.168.3.3:8006/#v1:0:=node%2Fyuhb:4:=certificates::::::

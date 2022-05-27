@@ -1,0 +1,33 @@
+1、查看当前系统时间
+fk@ubuntu:~$ date -R
+Wed, 25 Dec 2019 18:43:29 -0800
+
+2、选择时区
+fk@ubuntu:~$ tzselect
+Please identify a location so that time zone rules can be set correctly.
+Please select a continent, ocean, “coord”, or “TZ”.
+
+    Africa
+    Americas
+    Antarctica
+    Asia
+    Atlantic Ocean
+    Australia
+    Europe
+    Indian Ocean
+    Pacific Ocean
+    coord - I want to use geographical coordinates.
+    TZ - I want to specify the time zone using the Posix TZ format.
+    #?
+
+依次输入4 （Asia），9（China)，1(Beijing)，1(Shanghai)
+
+3.复制文件到/etc目录下
+fk@ubuntu:~$ sudo cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+
+4.查看时间date -R，为北京时间
+fk@ubuntu:~$ date -R
+Thu, 26 Dec 2019 10:52:24 +0800
+
+5、发现显示时间是对的，但是终端时间还是没有同步，重启即可
+fk@ubuntu:~$ sudo reboot now
