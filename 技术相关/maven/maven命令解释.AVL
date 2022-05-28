@@ -1,0 +1,29 @@
+package :命令完成了项目编译、单元测试、打包功能，但没有把打好的可执行jar包（war包或其它形式的包）布署到本地maven仓库和远程maven私服仓库
+
+install :命令完成了项目编译、单元测试、打包功能，同时把打好的可执行jar包（war包或其它形式的包）布署到本地maven仓库，但没有布署到远程maven私服仓库
+
+deploy :命令完成了项目编译、单元测试、打包功能，同时把打好的可执行jar包（war包或其它形式的包）布署到本地maven仓库和远程maven私服仓库
+
+mvn clean package
+依次执行了clean、resources、compile、testResources、testCompile、test、jar(打包)。
+
+mvn clean install
+依次执行了clean、resources、compile、testResources、testCompile、test、jar(打包)、install。
+
+mvn clean deploy
+依次执行了clean、resources、compile、testResources、testCompile、test、jar(打包)、install、deploy。
+
+当然还可以使用-Dskiptests跳过test的三个阶段
+
+mvn clean install -Dskiptests
+mvn clean install -Dmaven.test.skip=true
+
+package
+执行项目编译、单元测试、打包功能，单是不会布署到本地maven仓库和远程maven私服仓库
+
+install
+执行项目编译、单元测试、打包功能，同时布署到本地maven仓库，但不会布署到远程maven私服仓库
+
+deploy
+执行项目编译、单元测试、打包功能，同时会布署到本地maven仓库和远程maven私服仓库
+
